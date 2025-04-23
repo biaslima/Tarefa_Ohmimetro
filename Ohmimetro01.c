@@ -1,6 +1,7 @@
 /*
  * Por: Wilton Lacerda Silva
  *    Ohmímetro utilizando o ADC da BitDogLab
+ *    Modificado por Anna Beatriz Lima
  *
  * 
  * Neste exemplo, utilizamos o ADC do RP2040 para medir a resistência de um resistor
