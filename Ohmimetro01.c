@@ -11,6 +11,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <math.h>
 #include "pico/stdlib.h"
 #include "hardware/adc.h"
 #include "hardware/i2c.h"
@@ -27,6 +29,77 @@ int R_conhecido = 10000;   // Resistor de 10k ohm
 float R_x = 0.0;           // Resistor desconhecido
 float ADC_VREF = 3.31;     // Tensão de referência do ADC
 int ADC_RESOLUTION = 4095; // Resolução do ADC (12 bits)
+
+//Variáveis cores
+char* cor1;
+char* cor2;
+char* cor3;
+
+//Valores da série E24
+float baseE24[] = {
+  1.0, 1.1, 1.2, 1.3, 1.5, 1.6, 1.8, 2.0,
+  2.2, 2.4, 2.7, 3.0, 3.3, 3.6, 3.9, 4.3,
+  4.7, 5.1, 5.6, 6.2, 6.8, 7.5, 8.2, 9.1
+};
+ 
+int potencias_10[] = {
+  10, 100, 1000, 10000, 100000
+};
+
+char* cores[] = {
+  "Preto",    // 0
+  "Marrom",   // 1
+  "Vermelho", // 2
+  "Laranja",  // 3
+  "Amarelo",  // 4
+  "Verde",    // 5
+  "Azul",     // 6
+  "Violeta",  // 7
+  "Cinza",    // 8
+  "Branco"    // 9
+};
+
+
+float encontrar_valor_E24 (float resistencia){
+  
+  float menor_diferenca = 100000;
+  float mais_proximo = 0.0; 
+
+  int tamanhoE24 = sizeof(baseE24) / sizeof(baseE24[0]); 
+  int tamanho_potencia = sizeof(potencias_10) / sizeof(potencias_10[0]);
+
+  for (int i = 0; i < tamanhoE24 ; i++){
+    for (int j = 0; j < tamanho_potencia; j++){
+      float valor_aproximado = baseE24[i] * potencias_10[j];
+      float diferenca = fabs(resistencia - valor_aproximado);
+      if (diferenca < menor_diferenca){
+        menor_diferenca = diferenca;
+        mais_proximo = valor_aproximado; 
+      }
+    }
+    
+  }
+  return mais_proximo;
+}
+
+void gerar_cores(float valor_E24){
+  char str_valor[10];
+  sprintf(str_valor, "%.0f", valor_E24);
+
+  int tam = strlen(str_valor);
+  int multiplicador = tam - 2;
+
+  char digito1 = str_valor[0];
+  char digito2 = str_valor[1];
+
+  int d1 = digito1 - '0'; 
+  int d2 = digito2 - '0'; 
+
+  cor1 = cores[d1];
+  cor2 = cores[d2];
+  cor3 = cores[multiplicador]; 
+}
+
 
 // Trecho para modo BOOTSEL com botão B
 #include "pico/bootrom.h"
@@ -85,8 +158,10 @@ int main()
     }
     float media = soma / 500.0f;
 
-      // Fórmula simplificada: R_x = R_conhecido * ADC_encontrado /(ADC_RESOLUTION - adc_encontrado)
-      R_x = (R_conhecido * media) / (ADC_RESOLUTION - media);
+    // Fórmula simplificada: R_x = R_conhecido * ADC_encontrado /(ADC_RESOLUTION - adc_encontrado)
+    R_x = (R_conhecido * media) / (ADC_RESOLUTION - media);
+    float valor_E24 = encontrar_valor_E24(R_x); 
+    gerar_cores(valor_E24);
 
     sprintf(str_x, "%1.0f", media); // Converte o inteiro em string
     sprintf(str_y, "%1.0f", R_x);   // Converte o float em string
@@ -106,6 +181,14 @@ int main()
     ssd1306_draw_string(&ssd, str_x, 8, 52);           // Desenha uma string
     ssd1306_draw_string(&ssd, str_y, 59, 52);          // Desenha uma string
     ssd1306_send_data(&ssd);                           // Atualiza o display
-    sleep_ms(700);
+    sleep_ms(3000);
+    ssd1306_fill(&ssd, false);
+    ssd1306_send_data(&ssd);
+    ssd1306_draw_string(&ssd, "Cores:", 8, 6);
+    ssd1306_draw_string(&ssd, cor1, 20, 20);
+    ssd1306_draw_string(&ssd, cor2, 20, 32);
+    ssd1306_draw_string(&ssd, cor3, 20, 45);
+    ssd1306_send_data(&ssd);
+    sleep_ms(3000);
   }
 }
