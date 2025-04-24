@@ -89,14 +89,14 @@ void update_leds(PIO pio, uint sm) {
 
 uint32_t cor_para_rgb(char* nome_cor) {
   if(strcmp(nome_cor, "Preto") == 0) return create_color(0, 0, 0);
-  if(strcmp(nome_cor, "Marrom") == 0) return create_color(12, 24, 0);
+  if(strcmp(nome_cor, "Marrom") == 0) return create_color(10, 26, 0);
   if(strcmp(nome_cor, "Vermelho") == 0) return create_color(0, 60, 0);
-  if(strcmp(nome_cor, "Laranja") == 0) return create_color(30, 60, 0);
+  if(strcmp(nome_cor, "Laranja") == 0) return create_color(25, 65, 0);
   if(strcmp(nome_cor, "Amarelo") == 0) return create_color(60, 60, 0);
-  if(strcmp(nome_cor, "Verde") == 0) return create_color(6, 0, 0);
+  if(strcmp(nome_cor, "Verde") == 0) return create_color(60, 0, 0);
   if(strcmp(nome_cor, "Azul") == 0) return create_color(0, 0, 60);
   if(strcmp(nome_cor, "Violeta") == 0) return create_color(0, 48, 48);
-  if(strcmp(nome_cor, "Cinza") == 0) return create_color(45, 45, 45);
+  if(strcmp(nome_cor, "Cinza") == 0) return create_color(35, 35, 35);
   if(strcmp(nome_cor, "Branco") == 0) return create_color(60, 60, 60);
 }
 
@@ -106,20 +106,32 @@ void exibir_faixas(uint32_t leds[NUM_LEDS], char* cor1, char* cor2, char* cor3) 
       leds[i] = 0;
   }
   
-  // Define as posições dos LEDs para cada faixa
-  leds[localizar_led_xy(3, 1)] = create_color(15,15,15);
+  // Corpo do resistor (fundo cinza claro)
+  leds[localizar_led_xy(2, 0)] = create_color(8,8,8); 
 
-  leds[localizar_led_xy(2, 2)] = cor_para_rgb(cor1);
-  leds[localizar_led_xy(3, 2)] = cor_para_rgb(cor1);
-  leds[localizar_led_xy(4, 2)] = cor_para_rgb(cor1);  // Primeira faixa
-  leds[localizar_led_xy(2, 3)] = cor_para_rgb(cor2); 
-  leds[localizar_led_xy(3, 3)] = cor_para_rgb(cor2);
-  leds[localizar_led_xy(4, 3)] = cor_para_rgb(cor2); // Segunda faixa
-  leds[localizar_led_xy(2, 4)] = cor_para_rgb(cor3);
-  leds[localizar_led_xy(3, 4)] = cor_para_rgb(cor3);
-  leds[localizar_led_xy(4, 4)] = cor_para_rgb(cor3);  // Terceira faixa
-
-  leds[localizar_led_xy(3, 5)] = create_color(15,15,15);
+  for(int y = 1; y <= 3; y++) {
+    leds[localizar_led_xy(0, y)] = create_color(5, 5, 5);
+    leds[localizar_led_xy(4, y)] = create_color(5, 5, 5);
+  }
+  
+  // Faixas de cores (mais largas)
+  // Primeira faixa
+  leds[localizar_led_xy(1, 1)] = cor_para_rgb(cor1);
+  leds[localizar_led_xy(2, 1)] = cor_para_rgb(cor1);
+  leds[localizar_led_xy(3, 1)] = cor_para_rgb(cor1);
+  
+  // Segunda faixa
+  leds[localizar_led_xy(1, 2)] = cor_para_rgb(cor2);
+  leds[localizar_led_xy(2, 2)] = cor_para_rgb(cor2);
+  leds[localizar_led_xy(3, 2)] = cor_para_rgb(cor2);
+  
+  // Terceira faixa
+  leds[localizar_led_xy(1, 3)] = cor_para_rgb(cor3);
+  leds[localizar_led_xy(2, 3)] = cor_para_rgb(cor3);
+  leds[localizar_led_xy(3, 3)] = cor_para_rgb(cor3);
+  
+  // Terminal inferior
+  leds[localizar_led_xy(2, 4)] = create_color(8, 8, 8);
 }
 
 float encontrar_valor_E24 (float resistencia){
@@ -161,7 +173,6 @@ void gerar_cores(float valor_E24){
   cor2 = cores[d2];
   cor3 = cores[multiplicador]; 
 }
-
 
 // Trecho para modo BOOTSEL com botão B
 #include "pico/bootrom.h"
@@ -219,8 +230,11 @@ update_leds(pio, sm);
   float tensao;
   char str_x[5]; // Buffer para armazenar a string
   char str_y[5]; // Buffer para armazenar a string
+  char str_e24[15]; 
 
   bool cor = true;
+
+
   while (true)
   {
     adc_select_input(2); // Seleciona o ADC para eixo X. O pino 28 como entrada analógica
@@ -237,6 +251,14 @@ update_leds(pio, sm);
     R_x = (R_conhecido * media) / (ADC_RESOLUTION - media);
     float valor_E24 = encontrar_valor_E24(R_x); 
     gerar_cores(valor_E24);
+
+    if (valor_E24 < 1000) {
+      sprintf(str_e24, "%.0f Ohm", valor_E24);
+    } else if (valor_E24 < 1000000) {
+      sprintf(str_e24, "%.1f kOhm", valor_E24 / 1000.0);
+    } else {
+      sprintf(str_e24, "%.2f MOhm", valor_E24 / 1000000.0);
+    }
 
     sprintf(str_x, "%1.0f", media); // Converte o inteiro em string
     sprintf(str_y, "%1.0f", R_x);   // Converte o float em string
@@ -259,12 +281,22 @@ update_leds(pio, sm);
     ssd1306_fill(&ssd, false);
     ssd1306_send_data(&ssd);
 
+    int text_width = strlen(str_e24) * 6; // caractere 6 pixels de largura
+    int center_x = (128 - text_width) / 2;
+    ssd1306_draw_string(&ssd, "Valor E24:", 29, 24);
+    ssd1306_draw_string(&ssd, str_e24, center_x, 36);
+    ssd1306_send_data(&ssd);
+    sleep_ms(2000);
+    ssd1306_fill(&ssd, false);
+    ssd1306_send_data(&ssd);
+
     //Escreve as cores
     ssd1306_draw_string(&ssd, "Cores:", 8, 6);
     ssd1306_draw_string(&ssd, cor1, 30, 20);
     ssd1306_draw_string(&ssd, cor2, 30, 34);
     ssd1306_draw_string(&ssd, cor3, 30, 48);
 
+    
     //Desenha reistor
     ssd1306_rect(&ssd, 18, 100, 7, 12, cor, cor); 
     ssd1306_rect(&ssd, 32, 100, 7, 12, cor, cor);     
@@ -279,8 +311,8 @@ update_leds(pio, sm);
     ssd1306_send_data(&ssd);
 
     // Dentro do while(true) principal:
-  exibir_faixas(leds, cor1, cor2, cor3);
-  update_leds(pio, sm);
+    exibir_faixas(leds, cor1, cor2, cor3);
+    update_leds(pio, sm);
 
     sleep_ms(3000);
   }
