@@ -22,13 +22,15 @@
 #include "ws2812.pio.h"
 #include "hardware/pio.h"
 #include "hardware/clocks.h"
+#include "pico/bootrom.h"
 
 #define I2C_PORT i2c1
 #define I2C_SDA 14
 #define I2C_SCL 15
 #define endereco 0x3C
-#define ADC_PIN 28 // GPIO para o voltímetro
-#define Botao_A 5  // GPIO para botão A
+#define ADC_PIN 28 
+#define Botao_A 5  
+#define botaoB 6
 
 // Matriz de LEDs
 #define led_matrix_pin 7
@@ -57,7 +59,7 @@ int potencias_10[] = {
   10, 100, 1000, 10000, 100000
 };
 
-char* cores[] = {
+char* cores[] = { //Cores das faixas
   "Preto",    // 0
   "Marrom",   // 1
   "Vermelho", // 2
@@ -70,24 +72,22 @@ char* cores[] = {
   "Branco"    // 9
 };
 
-//=========================Matriz de LEDs - Funções
-//Função para localizar LEDs da matriz através de linhas e colunas
-uint8_t localizar_led_xy(uint8_t x, uint8_t y) {
+//=========================Matriz de LEDs - Funções===========================
+uint8_t localizar_led_xy(uint8_t x, uint8_t y) { //Localiza o LED desejado
   return (4 - y) * 5 + x;
 }
 
-// Função para criar uma cor GRB na matriz
-uint32_t create_color(uint8_t green, uint8_t red, uint8_t blue) {
+uint32_t create_color(uint8_t green, uint8_t red, uint8_t blue) { //Cria cor para o LED
   return ((uint32_t)green << 16) | ((uint32_t)red << 8) | blue;
 }
 
-void update_leds(PIO pio, uint sm) {
+void update_leds(PIO pio, uint sm) { //Atualiza matriz
   for (int i = 0; i < NUM_LEDS; i++) {
       pio_sm_put_blocking(pio, sm, leds[i] << 8u);
   }
 }
 
-uint32_t cor_para_rgb(char* nome_cor) {
+uint32_t cor_para_rgb(char* nome_cor) { //Conversão de cores para GRB
   if(strcmp(nome_cor, "Preto") == 0) return create_color(0, 0, 0);
   if(strcmp(nome_cor, "Marrom") == 0) return create_color(10, 26, 0);
   if(strcmp(nome_cor, "Vermelho") == 0) return create_color(0, 60, 0);
@@ -100,21 +100,18 @@ uint32_t cor_para_rgb(char* nome_cor) {
   if(strcmp(nome_cor, "Branco") == 0) return create_color(60, 60, 60);
 }
 
-void exibir_faixas(uint32_t leds[NUM_LEDS], char* cor1, char* cor2, char* cor3) {
-  // Limpa a matriz
+void exibir_faixas(uint32_t leds[NUM_LEDS], char* cor1, char* cor2, char* cor3) { //Exibição de faixas na matriz
+
   for(int i = 0; i < NUM_LEDS; i++) {
       leds[i] = 0;
   }
   
-  // Corpo do resistor (fundo cinza claro)
   leds[localizar_led_xy(2, 0)] = create_color(8,8,8); 
-
   for(int y = 1; y <= 3; y++) {
     leds[localizar_led_xy(0, y)] = create_color(5, 5, 5);
     leds[localizar_led_xy(4, y)] = create_color(5, 5, 5);
   }
   
-  // Faixas de cores (mais largas)
   // Primeira faixa
   leds[localizar_led_xy(1, 1)] = cor_para_rgb(cor1);
   leds[localizar_led_xy(2, 1)] = cor_para_rgb(cor1);
@@ -130,11 +127,10 @@ void exibir_faixas(uint32_t leds[NUM_LEDS], char* cor1, char* cor2, char* cor3) 
   leds[localizar_led_xy(2, 3)] = cor_para_rgb(cor3);
   leds[localizar_led_xy(3, 3)] = cor_para_rgb(cor3);
   
-  // Terminal inferior
   leds[localizar_led_xy(2, 4)] = create_color(8, 8, 8);
 }
 
-float encontrar_valor_E24 (float resistencia){
+float encontrar_valor_E24 (float resistencia){ //Encontra o valor correspondente a serie E24
   
   float menor_diferenca = 100000;
   float mais_proximo = 0.0; 
@@ -156,7 +152,7 @@ float encontrar_valor_E24 (float resistencia){
   return mais_proximo;
 }
 
-void gerar_cores(float valor_E24){
+void gerar_cores(float valor_E24){ //Descobre a cor correspondente a faixa do resistor
   char str_valor[10];
   sprintf(str_valor, "%.0f", valor_E24);
 
@@ -175,8 +171,6 @@ void gerar_cores(float valor_E24){
 }
 
 // Trecho para modo BOOTSEL com botão B
-#include "pico/bootrom.h"
-#define botaoB 6
 void gpio_irq_handler(uint gpio, uint32_t events)
 {
   reset_usb_boot(0, 0);
@@ -214,20 +208,19 @@ int main()
   adc_init();
   adc_gpio_init(ADC_PIN); // GPIO 28 como entrada analógica
 
-// Configurações PIO
-PIO pio = pio0;
-int sm = 0;
-uint offset = pio_add_program(pio, &ws2812_program);
-printf("Loaded program at %d\n", offset);
+  // Configurações PIO
+  PIO pio = pio0;
+  int sm = 0;
+  uint offset = pio_add_program(pio, &ws2812_program);
+  printf("Loaded program at %d\n", offset);
 
-ws2812_program_init(pio, sm, offset, led_matrix_pin, 800000, IS_RGBW);
+  ws2812_program_init(pio, sm, offset, led_matrix_pin, 800000, IS_RGBW);
 
- for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i] = 0; 
-}
-update_leds(pio, sm);
+    for (int i = 0; i < NUM_LEDS; i++) {
+        leds[i] = 0; 
+    }
+  update_leds(pio, sm);
 
-  float tensao;
   char str_x[5]; // Buffer para armazenar a string
   char str_y[5]; // Buffer para armazenar a string
   char str_e24[15]; 
@@ -240,8 +233,7 @@ update_leds(pio, sm);
     adc_select_input(2); // Seleciona o ADC para eixo X. O pino 28 como entrada analógica
 
     float soma = 0.0f;
-    for (int i = 0; i < 500; i++)
-    {
+    for (int i = 0; i < 500; i++){
       soma += adc_read();
       sleep_ms(1);
     }
@@ -290,12 +282,11 @@ update_leds(pio, sm);
     ssd1306_fill(&ssd, false);
     ssd1306_send_data(&ssd);
 
-    //Escreve as cores
+    //Escreve cores
     ssd1306_draw_string(&ssd, "Cores:", 8, 6);
     ssd1306_draw_string(&ssd, cor1, 30, 20);
     ssd1306_draw_string(&ssd, cor2, 30, 34);
     ssd1306_draw_string(&ssd, cor3, 30, 48);
-
     
     //Desenha reistor
     ssd1306_rect(&ssd, 18, 100, 7, 12, cor, cor); 
@@ -310,7 +301,6 @@ update_leds(pio, sm);
     ssd1306_line(&ssd, 110, 58, 110, 63, true);
     ssd1306_send_data(&ssd);
 
-    // Dentro do while(true) principal:
     exibir_faixas(leds, cor1, cor2, cor3);
     update_leds(pio, sm);
 
