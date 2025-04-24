@@ -19,6 +19,9 @@
 #include "hardware/i2c.h"
 #include "lib/ssd1306.h"
 #include "lib/font.h"
+#include "ws2812.pio.h"
+#include "hardware/pio.h"
+#include "hardware/clocks.h"
 
 #define I2C_PORT i2c1
 #define I2C_SDA 14
@@ -27,6 +30,11 @@
 #define ADC_PIN 28 // GPIO para o voltímetro
 #define Botao_A 5  // GPIO para botão A
 
+// Matriz de LEDs
+#define led_matrix_pin 7
+#define NUM_LEDS 25
+#define IS_RGBW false
+uint32_t leds[NUM_LEDS];
 
 int R_conhecido = 10000;   // Resistor de 10k ohm
 float R_x = 0.0;           // Resistor desconhecido
@@ -62,6 +70,57 @@ char* cores[] = {
   "Branco"    // 9
 };
 
+//=========================Matriz de LEDs - Funções
+//Função para localizar LEDs da matriz através de linhas e colunas
+uint8_t localizar_led_xy(uint8_t x, uint8_t y) {
+  return (4 - y) * 5 + x;
+}
+
+// Função para criar uma cor GRB na matriz
+uint32_t create_color(uint8_t green, uint8_t red, uint8_t blue) {
+  return ((uint32_t)green << 16) | ((uint32_t)red << 8) | blue;
+}
+
+void update_leds(PIO pio, uint sm) {
+  for (int i = 0; i < NUM_LEDS; i++) {
+      pio_sm_put_blocking(pio, sm, leds[i] << 8u);
+  }
+}
+
+uint32_t cor_para_rgb(char* nome_cor) {
+  if(strcmp(nome_cor, "Preto") == 0) return create_color(0, 0, 0);
+  if(strcmp(nome_cor, "Marrom") == 0) return create_color(12, 24, 0);
+  if(strcmp(nome_cor, "Vermelho") == 0) return create_color(0, 60, 0);
+  if(strcmp(nome_cor, "Laranja") == 0) return create_color(30, 60, 0);
+  if(strcmp(nome_cor, "Amarelo") == 0) return create_color(60, 60, 0);
+  if(strcmp(nome_cor, "Verde") == 0) return create_color(6, 0, 0);
+  if(strcmp(nome_cor, "Azul") == 0) return create_color(0, 0, 60);
+  if(strcmp(nome_cor, "Violeta") == 0) return create_color(0, 48, 48);
+  if(strcmp(nome_cor, "Cinza") == 0) return create_color(45, 45, 45);
+  if(strcmp(nome_cor, "Branco") == 0) return create_color(60, 60, 60);
+}
+
+void exibir_faixas(uint32_t leds[NUM_LEDS], char* cor1, char* cor2, char* cor3) {
+  // Limpa a matriz
+  for(int i = 0; i < NUM_LEDS; i++) {
+      leds[i] = 0;
+  }
+  
+  // Define as posições dos LEDs para cada faixa
+  leds[localizar_led_xy(3, 1)] = create_color(15,15,15);
+
+  leds[localizar_led_xy(2, 2)] = cor_para_rgb(cor1);
+  leds[localizar_led_xy(3, 2)] = cor_para_rgb(cor1);
+  leds[localizar_led_xy(4, 2)] = cor_para_rgb(cor1);  // Primeira faixa
+  leds[localizar_led_xy(2, 3)] = cor_para_rgb(cor2); 
+  leds[localizar_led_xy(3, 3)] = cor_para_rgb(cor2);
+  leds[localizar_led_xy(4, 3)] = cor_para_rgb(cor2); // Segunda faixa
+  leds[localizar_led_xy(2, 4)] = cor_para_rgb(cor3);
+  leds[localizar_led_xy(3, 4)] = cor_para_rgb(cor3);
+  leds[localizar_led_xy(4, 4)] = cor_para_rgb(cor3);  // Terceira faixa
+
+  leds[localizar_led_xy(3, 5)] = create_color(15,15,15);
+}
 
 float encontrar_valor_E24 (float resistencia){
   
@@ -144,6 +203,19 @@ int main()
   adc_init();
   adc_gpio_init(ADC_PIN); // GPIO 28 como entrada analógica
 
+// Configurações PIO
+PIO pio = pio0;
+int sm = 0;
+uint offset = pio_add_program(pio, &ws2812_program);
+printf("Loaded program at %d\n", offset);
+
+ws2812_program_init(pio, sm, offset, led_matrix_pin, 800000, IS_RGBW);
+
+ for (int i = 0; i < NUM_LEDS; i++) {
+    leds[i] = 0; 
+}
+update_leds(pio, sm);
+
   float tensao;
   char str_x[5]; // Buffer para armazenar a string
   char str_y[5]; // Buffer para armazenar a string
@@ -204,8 +276,12 @@ int main()
     ssd1306_line(&ssd, 110, 13, 110, 17, true);
     ssd1306_line(&ssd, 96, 58, 96, 63, true);
     ssd1306_line(&ssd, 110, 58, 110, 63, true);
-
     ssd1306_send_data(&ssd);
+
+    // Dentro do while(true) principal:
+  exibir_faixas(leds, cor1, cor2, cor3);
+  update_leds(pio, sm);
+
     sleep_ms(3000);
   }
 }
