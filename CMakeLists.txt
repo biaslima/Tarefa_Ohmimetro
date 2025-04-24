@@ -31,7 +31,7 @@ add_executable(${PROJECT_NAME}
         Ohmimetro01.c  # Código principal 
         lib/ssd1306.c # Biblioteca para o display OLED
         )
-
+        
 target_compile_definitions(${PROJECT_NAME} PRIVATE 
         PICO_PRINTF_SUPPORT_FLOAT=1 
         PICO_STDIO_ENABLE_PRINTF=1

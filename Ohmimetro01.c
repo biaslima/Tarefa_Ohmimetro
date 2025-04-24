@@ -19,12 +19,14 @@
 #include "hardware/i2c.h"
 #include "lib/ssd1306.h"
 #include "lib/font.h"
+
 #define I2C_PORT i2c1
 #define I2C_SDA 14
 #define I2C_SCL 15
 #define endereco 0x3C
 #define ADC_PIN 28 // GPIO para o voltímetro
 #define Botao_A 5  // GPIO para botão A
+
 
 int R_conhecido = 10000;   // Resistor de 10k ohm
 float R_x = 0.0;           // Resistor desconhecido
@@ -167,7 +169,6 @@ int main()
     sprintf(str_x, "%1.0f", media); // Converte o inteiro em string
     sprintf(str_y, "%1.0f", R_x);   // Converte o float em string
 
-    // cor = !cor;
     //  Atualiza o conteúdo do display com animações
     ssd1306_fill(&ssd, !cor);                          // Limpa o display
     ssd1306_rect(&ssd, 3, 3, 122, 60, cor, !cor);      // Desenha um retângulo
@@ -185,10 +186,25 @@ int main()
     sleep_ms(3000);
     ssd1306_fill(&ssd, false);
     ssd1306_send_data(&ssd);
+
+    //Escreve as cores
     ssd1306_draw_string(&ssd, "Cores:", 8, 6);
-    ssd1306_draw_string(&ssd, cor1, 20, 20);
-    ssd1306_draw_string(&ssd, cor2, 20, 32);
-    ssd1306_draw_string(&ssd, cor3, 20, 45);
+    ssd1306_draw_string(&ssd, cor1, 30, 20);
+    ssd1306_draw_string(&ssd, cor2, 30, 34);
+    ssd1306_draw_string(&ssd, cor3, 30, 48);
+
+    //Desenha reistor
+    ssd1306_rect(&ssd, 18, 100, 7, 12, cor, cor); 
+    ssd1306_rect(&ssd, 32, 100, 7, 12, cor, cor);     
+    ssd1306_rect(&ssd, 46, 100, 7, 12, cor, cor);     
+    ssd1306_line(&ssd, 103, 6, 103, 63, true);
+    ssd1306_line(&ssd, 96, 13, 110, 13, true);
+    ssd1306_line(&ssd, 96, 63, 110, 63, true);
+    ssd1306_line(&ssd, 96, 13, 96, 17, true);
+    ssd1306_line(&ssd, 110, 13, 110, 17, true);
+    ssd1306_line(&ssd, 96, 58, 96, 63, true);
+    ssd1306_line(&ssd, 110, 58, 110, 63, true);
+
     ssd1306_send_data(&ssd);
     sleep_ms(3000);
   }
